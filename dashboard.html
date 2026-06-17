@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Heart Monitor Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 10px; font-size: 2em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .subtitle { text-align: center; opacity: 0.8; margin-bottom: 30px; }
+        .status-bar { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .status-item { display: flex; align-items: center; gap: 8px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #4caf50; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .retrain-btn { background: linear-gradient(135deg, #ff6b6b, #ee5a6f); color: white; border: none; padding: 10px 20px; border-radius: 25px; font-weight: bold; cursor: pointer; font-size: 0.9em; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(238, 90, 111, 0.4); }
+        .retrain-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(238, 90, 111, 0.6); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 15px; padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.2); }
+        .card-title { font-size: 0.9em; opacity: 0.8; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .big-number { font-size: 3em; font-weight: bold; text-align: center; margin: 10px 0; }
+        .unit { font-size: 0.4em; opacity: 0.7; }
+        .heart-icon { display: inline-block; color: #ff4757; animation: heartbeat 1s infinite; }
+        @keyframes heartbeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+        .badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9em; }
+        .badge-rest { background: #4caf50; } .badge-walk { background: #ff9800; } .badge-run { background: #f44336; }
+        .badge-excellent { background: #4caf50; } .badge-good { background: #2196f3; } .badge-fair { background: #ff9800; } .badge-needs-attention { background: #f44336; }
+        .badge-athletic { background: #9c27b0; } .badge-normal { background: #4caf50; } .badge-elevated { background: #ff9800; } .badge-high { background: #f44336; }
+        .chart-container { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 15px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.2); }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
+        .metric { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; text-align: center; }
+        .metric-value { font-size: 1.5em; font-weight: bold; color: #4fc3f7; }
+        .metric-label { font-size: 0.8em; opacity: 0.7; margin-top: 5px; }
+        .recommendations { background: rgba(76, 175, 80, 0.2); border-left: 4px solid #4caf50; padding: 15px; border-radius: 5px; margin-top: 15px; }
+        .recommendations h3 { margin-bottom: 10px; font-size: 1em; }
+        .recommendations ul { list-style: none; padding-left: 0; }
+        .recommendations li { padding: 5px 0; padding-left: 25px; position: relative; }
+        .recommendations li:before { content: "💡"; position: absolute; left: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { background: rgba(255,255,255,0.1); }
+        
+        /* Modal Styling */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); overflow-y: auto; }
+        .modal-content { background: linear-gradient(135deg, #2a5298, #1e3c72); margin: 5% auto; padding: 30px; border-radius: 20px; width: 90%; max-width: 700px; border: 2px solid rgba(255,255,255,0.3); box-shadow: 0 15px 60px rgba(0,0,0,0.6); animation: modalSlideIn 0.6s ease; }
+        @keyframes modalSlideIn { from { transform: translateY(-100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn { padding: 12px 30px; border-radius: 25px; border: none; font-weight: bold; cursor: pointer; transition: all 0.3s; font-size: 1em; }
+        .btn-cancel { background: rgba(255,255,255,0.2); color: white; }
+        .btn-confirm { background: linear-gradient(135deg, #4caf50, #45a049); color: white; }
+        .btn-primary { background: linear-gradient(135deg, #2196f3, #1976d2); color: white; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        
+        /* Progress Bar */
+        .progress-container { display: none; background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 2px solid #ff9800; animation: glow 2s infinite; }
+        @keyframes glow { 0%, 100% { box-shadow: 0 0 10px rgba(255, 152, 0, 0.5); } 50% { box-shadow: 0 0 25px rgba(255, 152, 0, 0.8); } }
+        .progress-bar { width: 100%; height: 30px; background: rgba(255,255,255,0.1); border-radius: 15px; overflow: hidden; margin-top: 10px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #ff9800, #ff5722); width: 0%; transition: width 0.5s ease; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; }
+        
+        /* Toast Notification */
+        .toast { position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #4caf50, #45a049); color: white; padding: 15px 25px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); display: none; z-index: 2000; animation: slideIn 0.5s ease; }
+        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        /* ⭐ MCU REPORT STYLING */
+        .mcu-header { text-align: center; border-bottom: 2px solid rgba(255,255,255,0.2); padding-bottom: 20px; margin-bottom: 25px; }
+        .mcu-header h2 { font-size: 1.8em; color: #4fc3f7; margin-bottom: 5px; }
+        .mcu-header p { opacity: 0.8; font-size: 0.95em; }
+        .mcu-header .timestamp { margin-top: 10px; font-size: 0.85em; opacity: 0.6; }
+        
+        .mcu-overall { background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(33, 150, 243, 0.3)); padding: 25px; border-radius: 15px; text-align: center; margin-bottom: 25px; border: 2px solid rgba(76, 175, 80, 0.5); }
+        .mcu-overall-score { font-size: 4em; font-weight: bold; margin: 10px 0; }
+        .mcu-overall-status { font-size: 1.5em; font-weight: bold; margin-bottom: 10px; }
+        .mcu-overall-message { opacity: 0.9; font-style: italic; }
+        
+        .mcu-metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+        .mcu-metric-card { background: rgba(255,255,255,0.08); padding: 20px; border-radius: 12px; border-left: 4px solid #4fc3f7; }
+        .mcu-metric-card.heart { border-left-color: #ff4757; }
+        .mcu-metric-card.hrv { border-left-color: #4fc3f7; }
+        .mcu-metric-card h4 { font-size: 0.9em; opacity: 0.7; margin-bottom: 10px; text-transform: uppercase; }
+        .mcu-metric-card .value { font-size: 2em; font-weight: bold; margin: 5px 0; }
+        .mcu-metric-card .category { display: inline-block; padding: 3px 12px; border-radius: 15px; font-size: 0.85em; font-weight: bold; margin-top: 5px; }
+        .mcu-metric-card .detail { font-size: 0.85em; opacity: 0.8; margin-top: 8px; line-height: 1.4; }
+        .mcu-metric-card .range { font-size: 0.8em; opacity: 0.6; margin-top: 5px; }
+        
+        .mcu-interpretation { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 20px; line-height: 1.6; border-left: 4px solid #ffd700; }
+        .mcu-interpretation h4 { color: #ffd700; margin-bottom: 10px; }
+        
+        .mcu-recommendations { background: rgba(76, 175, 80, 0.15); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .mcu-recommendations h4 { color: #81c784; margin-bottom: 15px; }
+        .mcu-recommendations ul { list-style: none; padding: 0; }
+        .mcu-recommendations li { padding: 8px 0 8px 30px; position: relative; line-height: 1.5; }
+        .mcu-recommendations li:before { content: "✓"; position: absolute; left: 0; color: #81c784; font-weight: bold; font-size: 1.2em; }
+        
+        .mcu-disclaimer { background: rgba(255, 152, 0, 0.1); padding: 15px; border-radius: 10px; font-size: 0.85em; opacity: 0.8; line-height: 1.5; border-left: 3px solid #ff9800; margin-bottom: 20px; }
+        .mcu-disclaimer strong { color: #ff9800; }
+        
+        @media (max-width: 600px) {
+            .mcu-metrics-grid { grid-template-columns: 1fr; }
+            .mcu-overall-score { font-size: 3em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Smart Heart Monitor Dashboard</h1>
+        <p class="subtitle">Real-time Health Monitoring System</p>
+        
+        <div class="status-bar">
+            <div class="status-item"><div class="dot"></div><span id="connectionStatus">Connected</span></div>
+            <div class="status-item">📡 Device: <strong id="deviceId">ESP32_UAS_01</strong></div>
+            <div class="status-item">📊 Readings: <strong id="totalReadings">0</strong></div>
+            <div class="status-item">🤖 Models: <strong id="modelsStatus">Training...</strong></div>
+            <button class="retrain-btn" onclick="showRetrainModal()">🔄 Retrain Model</button>
+        </div>
+        
+        <div class="progress-container" id="progressContainer">
+            <h3>⏳ Retraining Model untuk User Baru...</h3>
+            <p style="opacity: 0.8; margin-top: 5px;">Tempelkan jari dan biarkan sensor membaca detak jantung Anda.</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+            <p style="margin-top: 10px; font-size: 0.9em;" id="progressText">Mengumpulkan data: 0/30</p>
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">❤️ Heart Rate</div>
+                <div class="big-number"><span class="heart-icon">❤️</span><span id="bpmValue">--</span><span class="unit">BPM</span></div>
+                <div style="text-align:center;"><span class="badge" id="activityBadge">REST</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title">💪 Health Score</div>
+                <div class="big-number" id="healthScore">--</div>
+                <div style="text-align:center;"><span class="badge" id="healthBadge">--</span></div>
+                <div id="healthMessage" style="text-align:center; margin-top:10px; opacity:0.9;"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">📈 Motion Level</div>
+                <div class="big-number" id="motionValue">--</div>
+                <div style="text-align:center;"><span class="badge" id="motionBadge">--</span></div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <h3 style="margin-bottom:15px;">📊 BPM History (Real-time)</h3>
+            <canvas id="bpmChart" height="80"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <h3 style="margin-bottom:15px;">📉 HRV Metrics</h3>
+            <canvas id="hrvChart" height="80"></canvas>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">🔬 Detailed Metrics</div>
+            <div class="metrics-grid">
+                <div class="metric"><div class="metric-value" id="sdnnValue">--</div><div class="metric-label">SDNN (ms)</div></div>
+                <div class="metric"><div class="metric-value" id="rmssdValue">--</div><div class="metric-label">RMSSD (ms)</div></div>
+                <div class="metric"><div class="metric-value" id="rfConfidence">--</div><div class="metric-label">Activity Confidence</div></div>
+                <div class="metric"><div class="metric-value" id="noveltyScore">--</div><div class="metric-label">Novelty Score</div></div>
+            </div>
+            <div class="recommendations" id="recommendationsBox" style="display:none;">
+                <h3>💡 Rekomendasi</h3>
+                <ul id="recommendationsList"></ul>
+            </div>
+        </div>
+        
+        <div class="card" style="margin-top:20px;">
+            <div class="card-title">📋 Recent Data Log</div>
+            <table>
+                <thead><tr><th>Time</th><th>BPM</th><th>Motion</th><th>Context</th><th>Score</th><th>Status</th></tr></thead>
+                <tbody id="logTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ⭐ MODAL MCU REPORT -->
+    <div id="mcuModal" class="modal">
+        <div class="modal-content">
+            <div class="mcu-header">
+                <h2>📋 LAPORAN MEDICAL CHECK-UP</h2>
+                <p>Hasil Pemeriksaan Awal Berbasis AI</p>
+                <div class="timestamp" id="mcuTimestamp">--</div>
+            </div>
+            
+            <div class="mcu-overall" id="mcuOverall">
+                <div style="font-size: 0.9em; opacity: 0.8;">SKOR KESEHATAN KESELURUHAN</div>
+                <div class="mcu-overall-score" id="mcuOverallScore">--</div>
+                <div class="mcu-overall-status" id="mcuOverallStatus">--</div>
+                <div class="mcu-overall-message" id="mcuOverallMessage">--</div>
+            </div>
+            
+            <div class="mcu-metrics-grid">
+                <div class="mcu-metric-card heart">
+                    <h4>❤️ Heart Rate</h4>
+                    <div class="value" id="mcuHrValue">--</div>
+                    <div>BPM (rata-rata)</div>
+                    <div class="category" id="mcuHrCategory">--</div>
+                    <div class="range" id="mcuHrRange">--</div>
+                    <div class="detail" id="mcuHrInterpretation">--</div>
+                </div>
+                
+                <div class="mcu-metric-card hrv">
+                    <h4>📊 HRV Analysis</h4>
+                    <div class="value" id="mcuHrvValue">--</div>
+                    <div>ms (SDNN)</div>
+                    <div class="category" id="mcuHrvCategory">--</div>
+                    <div class="range" id="mcuHrvRmssd">--</div>
+                    <div class="detail" id="mcuHrvInterpretation">--</div>
+                </div>
+            </div>
+            
+            <div class="mcu-interpretation">
+                <h4>📝 Interpretasi</h4>
+                <p id="mcuInterpretation">--</p>
+            </div>
+            
+            <div class="mcu-recommendations">
+                <h4>💡 Rekomendasi Personal</h4>
+                <ul id="mcuRecommendations"></ul>
+            </div>
+            
+            <div class="mcu-disclaimer">
+                <strong>⚠️ Disclaimer:</strong> <span id="mcuDisclaimer">--</span>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="closeMcuModal()">✓ Mulai Monitoring Real-time</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Retrain -->
+    <div id="retrainModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h2 style="color: #ff6b6b;">🔄 Konfirmasi Retrain Model</h2>
+            <p style="margin: 15px 0; line-height: 1.6;">Anda akan melatih ulang model Machine Learning untuk <strong>user baru</strong>.</p>
+            <p style="margin-bottom: 15px;">⚠️ <strong>Perhatian:</strong></p>
+            <ul style="margin-left: 20px; margin-bottom: 20px; line-height: 1.8;">
+                <li>Semua data historis akan dihapus</li>
+                <li>Model lama akan diganti dengan yang baru</li>
+                <li>Proses kalibrasi membutuhkan ~90 detik</li>
+                <li>Gunakan fitur ini saat <strong>berganti user</strong></li>
+            </ul>
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" onclick="hideRetrainModal()">Batal</button>
+                <button class="btn btn-confirm" style="background: linear-gradient(135deg, #ff6b6b, #ee5a6f);" onclick="confirmRetrain()">Ya, Retrain Sekarang</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const bpmCtx = document.getElementById('bpmChart').getContext('2d');
+        const bpmChart = new Chart(bpmCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'BPM', data: [], borderColor: '#ff4757', backgroundColor: 'rgba(255, 71, 87, 0.1)', tension: 0.4, fill: true }] },
+            options: { responsive: true, plugins: { legend: { labels: { color: 'white' } } }, scales: { y: { beginAtZero: false, ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } } } }
+        });
+
+        const hrvCtx = document.getElementById('hrvChart').getContext('2d');
+        const hrvChart = new Chart(hrvCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'SDNN', data: [], borderColor: '#4fc3f7', tension: 0.4 }, { label: 'RMSSD', data: [], borderColor: '#81c784', tension: 0.4 }] },
+            options: { responsive: true, plugins: { legend: { labels: { color: 'white' } } }, scales: { y: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } } } }
+        });
+
+        const MAX_POINTS = 30;
+        const logData = [];
+        const evtSource = new EventSource('/stream');
+        
+        evtSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            updateDashboard(data);
+        };
+        
+        evtSource.onerror = function() {
+            document.getElementById('connectionStatus').textContent = 'Disconnected ❌';
+            document.querySelector('.dot').style.background = '#f44336';
+        };
+
+        function updateDashboard(data) {
+            document.getElementById('totalReadings').textContent = data.readings || 0;
+            document.getElementById('modelsStatus').textContent = data.models_trained ? '✅ Ready' : 'Training...';
+            document.getElementById('bpmValue').textContent = data.metrics?.mean_bpm || '--';
+            document.getElementById('healthScore').textContent = data.health_score || '--';
+            
+            const activityBadge = document.getElementById('activityBadge');
+            activityBadge.textContent = data.context;
+            activityBadge.className = 'badge badge-' + data.context.toLowerCase();
+            
+            const healthBadge = document.getElementById('healthBadge');
+            healthBadge.textContent = data.health_status;
+            healthBadge.className = 'badge badge-' + data.health_status.toLowerCase().replace(' ', '-');
+            
+            document.getElementById('healthMessage').textContent = data.message || '';
+            
+            const motionMap = { 'REST': 5, 'WALK': 25, 'RUN': 75 };
+            document.getElementById('motionValue').textContent = motionMap[data.context] || 0;
+            const motionBadge = document.getElementById('motionBadge');
+            motionBadge.textContent = data.context;
+            motionBadge.className = 'badge badge-' + data.context.toLowerCase();
+            
+            document.getElementById('sdnnValue').textContent = data.metrics?.sdnn?.toFixed(2) || '--';
+            document.getElementById('rmssdValue').textContent = data.metrics?.rmssd?.toFixed(2) || '--';
+            
+            if (data.ml_analysis) {
+                const rf = data.ml_analysis.activity_recognition;
+                document.getElementById('rfConfidence').textContent = rf ? (rf.confidence * 100).toFixed(0) + '%' : '--';
+                const novelty = data.ml_analysis.novelty_detection;
+                document.getElementById('noveltyScore').textContent = novelty ? novelty.score.toFixed(3) : '--';
+            }
+            
+            if (data.recommendations && data.recommendations.length > 0) {
+                document.getElementById('recommendationsBox').style.display = 'block';
+                document.getElementById('recommendationsList').innerHTML = data.recommendations.map(r => `<li>${r}</li>`).join('');
+            }
+            
+            // ⭐ UPDATE PROGRESS BAR RETRAINING
+            if (data.retrain_status === 'in_progress') {
+                document.getElementById('progressContainer').style.display = 'block';
+                const progress = data.progress || 0;
+                document.getElementById('progressFill').style.width = progress + '%';
+                document.getElementById('progressFill').textContent = progress + '%';
+                document.getElementById('progressText').textContent = `Mengumpulkan data: ${data.readings || 0}/${data.target || 30}`;
+            } else if (data.retrain_status === 'completed') {
+                document.getElementById('progressContainer').style.display = 'none';
+            } else if (data.models_trained) {
+                document.getElementById('progressContainer').style.display = 'none';
+            }
+            
+            // ⭐ TAMPILKAN MCU REPORT SAAT MODEL SELESAI TRAINING
+            if (data.show_mcu && data.mcu_report) {
+                displayMcuReport(data.mcu_report);
+            }
+            
+            const now = new Date().toLocaleTimeString();
+            bpmChart.data.labels.push(now);
+            bpmChart.data.datasets[0].data.push(data.metrics?.mean_bpm || 0);
+            if (bpmChart.data.labels.length > MAX_POINTS) { bpmChart.data.labels.shift(); bpmChart.data.datasets[0].data.shift(); }
+            bpmChart.update('none');
+            
+            hrvChart.data.labels.push(now);
+            hrvChart.data.datasets[0].data.push(data.metrics?.sdnn || 0);
+            hrvChart.data.datasets[1].data.push(data.metrics?.rmssd || 0);
+            if (hrvChart.data.labels.length > MAX_POINTS) { hrvChart.data.labels.shift(); hrvChart.data.datasets[0].data.shift(); hrvChart.data.datasets[1].data.shift(); }
+            hrvChart.update('none');
+            
+            logData.unshift({ time: now, bpm: data.metrics?.mean_bpm?.toFixed(1) || '--', motion: data.context, score: data.health_score || '--', status: data.health_status });
+            if (logData.length > 10) logData.pop();
+            
+            document.getElementById('logTable').innerHTML = logData.map(row => `
+                <tr>
+                    <td>${row.time}</td><td>${row.bpm}</td><td>${row.motion}</td><td>${row.motion}</td><td>${row.score}</td>
+                    <td><span class="badge badge-${row.status.toLowerCase().replace(' ','-')}">${row.status}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        // ⭐ FUNGSI TAMPILKAN LAPORAN MCU
+        function displayMcuReport(report) {
+            // Timestamp
+            document.getElementById('mcuTimestamp').textContent = `📅 ${report.timestamp} | Durasi: ${report.duration_seconds}s | ${report.total_readings} pembacaan`;
+            
+            // Overall Score
+            document.getElementById('mcuOverallScore').textContent = report.overall_score + '/100';
+            document.getElementById('mcuOverallStatus').textContent = report.overall_status;
+            document.getElementById('mcuOverallMessage').textContent = report.overall_message;
+            
+            // Warna overall berdasarkan status
+            const overallEl = document.querySelector('.mcu-overall');
+            if (report.overall_status === 'EXCELLENT') {
+                overallEl.style.background = 'linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(33, 150, 243, 0.3))';
+                overallEl.style.borderColor = 'rgba(76, 175, 80, 0.5)';
+            } else if (report.overall_status === 'GOOD') {
+                overallEl.style.background = 'linear-gradient(135deg, rgba(33, 150, 243, 0.3), rgba(100, 181, 246, 0.3))';
+                overallEl.style.borderColor = 'rgba(33, 150, 243, 0.5)';
+            } else if (report.overall_status === 'FAIR') {
+                overallEl.style.background = 'linear-gradient(135deg, rgba(255, 152, 0, 0.3), rgba(255, 183, 77, 0.3))';
+                overallEl.style.borderColor = 'rgba(255, 152, 0, 0.5)';
+            } else {
+                overallEl.style.background = 'linear-gradient(135deg, rgba(244, 67, 54, 0.3), rgba(229, 115, 115, 0.3))';
+                overallEl.style.borderColor = 'rgba(244, 67, 54, 0.5)';
+            }
+            
+            // Heart Rate
+            document.getElementById('mcuHrValue').textContent = report.heart_rate.average;
+            const hrCat = document.getElementById('mcuHrCategory');
+            hrCat.textContent = report.heart_rate.category;
+            hrCat.className = 'category badge-' + report.heart_rate.category.toLowerCase();
+            document.getElementById('mcuHrRange').textContent = `Range: ${report.heart_rate.min} - ${report.heart_rate.max} BPM (σ: ${report.heart_rate.std})`;
+            document.getElementById('mcuHrInterpretation').textContent = report.heart_rate.interpretation;
+            
+            // HRV
+            document.getElementById('mcuHrvValue').textContent = report.hrv.sdnn_avg;
+            const hrvCat = document.getElementById('mcuHrvCategory');
+            hrvCat.textContent = report.hrv.category;
+            hrvCat.className = 'category badge-' + report.hrv.category.toLowerCase();
+            document.getElementById('mcuHrvRmssd').textContent = `RMSSD: ${report.hrv.rmssd_avg} ms`;
+            document.getElementById('mcuHrvInterpretation').textContent = report.hrv.interpretation;
+            
+            // Interpretation
+            document.getElementById('mcuInterpretation').textContent = report.interpretation;
+            
+            // Recommendations
+            document.getElementById('mcuRecommendations').innerHTML = 
+                report.recommendations.map(r => `<li>${r}</li>`).join('');
+            
+            // Disclaimer
+            document.getElementById('mcuDisclaimer').textContent = report.disclaimer;
+            
+            // Tampilkan modal
+            document.getElementById('mcuModal').style.display = 'block';
+            
+            // Toast notification
+            showToast('📋 Laporan MCU siap! Periksa hasil pemeriksaan Anda.');
+        }
+
+        function closeMcuModal() {
+            document.getElementById('mcuModal').style.display = 'none';
+            showToast('✅ Monitoring real-time dimulai!');
+        }
+
+        // ⭐ FUNGSI RETRAIN MODEL
+        function showRetrainModal() {
+            document.getElementById('retrainModal').style.display = 'block';
+        }
+
+        function hideRetrainModal() {
+            document.getElementById('retrainModal').style.display = 'none';
+        }
+
+        function confirmRetrain() {
+            hideRetrainModal();
+            fetch('/retrain/ESP32_UAS_01', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showToast('🔄 Retraining dimulai! Silakan tempelkan jari untuk kalibrasi.');
+                        document.getElementById('progressContainer').style.display = 'block';
+                    } else {
+                        showToast('❌ Error: ' + data.message);
+                    }
+                })
+                .catch(error => showToast('❌ Error: ' + error.message));
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 4000);
+        }
+
+        window.onclick = function(event) {
+            const mcuModal = document.getElementById('mcuModal');
+            const retrainModal = document.getElementById('retrainModal');
+            if (event.target === retrainModal) hideRetrainModal();
+            // MCU modal tidak bisa ditutup dengan klik di luar (harus klik tombol)
+        }
+    </script>
+</body>
+</html>
